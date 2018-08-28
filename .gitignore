@@ -1,0 +1,12 @@
+# app
+backup
+secret
+ca.crt
+
+# vim
+*.swp
+*.swo
+Session.vim
+tags
+.agignore
+.vimrc
