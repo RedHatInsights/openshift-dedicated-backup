@@ -2,6 +2,7 @@
 backup
 secret
 ca.crt
+env.sh
 
 # vim
 *.swp
