@@ -85,9 +85,10 @@ class GitRepo(object):
 
     def checkout_branch(self, branch_name):
         try:
-            self.repo.git.checkout(branch_name)
-            self.repo.git.reset('--hard', 'origin/{0}'.format(branch_name))
-        except GitCommandError:
+            self.repo.create_head(branch_name, self.origin.refs[branch_name]).set_tracking_branch(
+                self.origin.refs[branch_name]).checkout()
+            self.repo.heads[branch_name].checkout()
+        except (GitCommandError, IndexError, AttributeError):
             self.repo.git.checkout('-b', branch_name)
             self.repo.git.reset('--hard', 'origin/master')
 
@@ -183,7 +184,8 @@ def download_project_templates(project_name):
                        # 'ProvisionedService',
                        # 'Pipeline',
                        # 'Quota',
-                       'Pod']
+                       # 'Pod'
+                       ]
     for resource_type in types_to_backup:
         download_resource_type_templates(project_name, resource_type,
                                          BACKUP_GIT_WORKING_DIR)
@@ -231,16 +233,16 @@ if __name__ == '__main__':
         commit_msg = '{1}'.format(
             name, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-        download_project_templates(name)
         backup_git_repo.checkout_branch(name)
+        download_project_templates(name)
         backup_git_repo.commit_all(commit_msg)
 
-        download_project_secret_templates(name)
         secret_git_repo.checkout_branch(name)
+        download_project_secret_templates(name)
         secret_git_repo.commit_all(commit_msg)
 
     backup_git_repo.push_all()
     secret_git_repo.push_all()
 
-    # remove_dir(BACKUP_GIT_WORKING_DIR)
-    # remove_dir(SECRET_GIT_WORKING_DIR)
+    remove_dir(BACKUP_GIT_WORKING_DIR)
+    remove_dir(SECRET_GIT_WORKING_DIR)
