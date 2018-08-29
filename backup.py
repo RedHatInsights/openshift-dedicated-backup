@@ -95,6 +95,7 @@ class GitRepo(object):
         self.working_dir = working_dir
 
         ssh_cmd = 'ssh -i {0}'.format(GIT_SSH_PRIVATE_KEY_LOC)
+        log.debug('ssh_cmd: {}'.format(ssh_cmd))
         self.repo = Repo.init(working_dir)
         self.repo.git.update_environment(GIT_SSH_COMMAND=ssh_cmd)
 
