@@ -15,14 +15,12 @@ from git.exc import GitCommandError
 log = logger.logging
 
 try:
-    BACKUP_GIT_WORKING_DIR = os.environ['BACKUP_GIT_WORKING_DIR']
+    WORKING_DIR = os.environ['WORKING_DIR']
 except KeyError:
-    BACKUP_GIT_WORKING_DIR = './backup'
+    WORKING_DIR = '.'
 
-try:
-    SECRET_GIT_WORKING_DIR = os.environ['SECRET_GIT_WORKING_DIR']
-except KeyError:
-    SECRET_GIT_WORKING_DIR = './backup-secrets'
+BACKUP_GIT_WORKING_DIR = WORKING_DIR + '/backup'
+SECRET_GIT_WORKING_DIR = WORKING_DIR + '/secret'
 
 try:
     LOG_LEVEL = os.environ['LOG_LEVEL']
@@ -64,7 +62,7 @@ try:
 except KeyError:
     try:
         private_key = os.environ['GIT_SSH_PRIVATE_KEY']
-        GIT_SSH_PRIVATE_KEY_LOC = '/tmp/ssh_key'
+        GIT_SSH_PRIVATE_KEY_LOC = WORKING_DIR + '/ssh_key'
         f = open(GIT_SSH_PRIVATE_KEY_LOC, 'w')
         f.write(private_key)
         f.close()
@@ -79,7 +77,7 @@ try:
 except KeyError:
     try:
         service_cert = os.environ['SERVICE_CERT']
-        SERVICE_CERT_FILENAME = '/tmp/ca.crt'
+        SERVICE_CERT_FILENAME = WORKING_DIR + '/ca.crt'
         f = open(SERVICE_CERT_FILENAME, 'w')
         f.write(service_cert)
         f.close()

@@ -43,11 +43,8 @@ export BACKUP_GIT_REPO=git@github.com:RedHatInsights/insights-osd-backup.git
 # git repo where secrets for all projects will be stored
 export SECRET_GIT_REPO=git@github.com:RedHatInsights/inights-osd-backup-secret.git
 
-# temporary directory where BACKUP_GIT_REPO will be cloned
-export BACKUP_GIT_WORKING_DIR=./backup
-
-# temporary directory where SECRET_GIT_REPO will be cloned
-export SECRET_GIT_WORKING_DIR=./secret
+# temporary directory where repos will be cloned
+export WORKING_DIR=/mnt
 
 # SSL certificate for KUBERNETES_SERVICE_HOST
 export SERVICE_CERT_FILENAME=/home/me/certs/myopenshift.ca.crt
