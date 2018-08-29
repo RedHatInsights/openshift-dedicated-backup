@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 import datetime
-import logging
+import logger
 import os
 import shutil
 import yaml
@@ -11,6 +11,8 @@ from kubernetes.client.rest import ApiException
 from openshift.dynamic import DynamicClient
 from git import Repo
 from git.exc import GitCommandError
+
+log = logger.logging
 
 try:
     BACKUP_GIT_WORKING_DIR = os.environ['BACKUP_GIT_WORKING_DIR']
@@ -30,47 +32,67 @@ except KeyError:
 try:
     BACKUP_GIT_REPO = os.environ['BACKUP_GIT_REPO']
 except KeyError:
-    logging.error('BACKUP_GIT_REPO environment variable must be set.')
+    log.error('BACKUP_GIT_REPO environment variable must be set.')
     exit(1)
 
 try:
     SECRET_GIT_REPO = os.environ['SECRET_GIT_REPO']
 except KeyError:
-    logging.error('SECRET_GIT_REPO environment variable must be set.')
+    log.error('SECRET_GIT_REPO environment variable must be set.')
     exit(1)
 
 try:
     KUBERNETES_SERVICE_HOST = os.environ['KUBERNETES_SERVICE_HOST']
 except KeyError:
-    logging.error('KUBERNETES_SERVICE_HOST environment variable must be set.')
+    log.error('KUBERNETES_SERVICE_HOST environment variable must be set.')
     exit(1)
 
 try:
     KUBERNETES_SERVICE_PORT = os.environ['KUBERNETES_SERVICE_PORT']
 except KeyError:
-    logging.error('KUBERNETES_SERVICE_PORT environment variable must be set.')
+    log.error('KUBERNETES_SERVICE_PORT environment variable must be set.')
     exit(1)
 
 try:
     KUBERNETES_TOKEN = os.environ['KUBERNETES_TOKEN']
 except KeyError:
-    logging.error('KUBERNETES_TOKEN environment variable must be set.')
+    log.error('KUBERNETES_TOKEN environment variable must be set.')
     exit(1)
 
 try:
     GIT_SSH_PRIVATE_KEY_LOC = os.environ['GIT_SSH_PRIVATE_KEY_LOC']
 except KeyError:
-    logging.error('GIT_SSH_PRIVATE_KEY_LOC environment variable must be set.')
-    exit(1)
+    try:
+        private_key = os.environ['GIT_SSH_PRIVATE_KEY']
+        GIT_SSH_PRIVATE_KEY_LOC = '/tmp/ssh_key'
+        f = open(GIT_SSH_PRIVATE_KEY_LOC, 'w')
+        f.write(private_key)
+        f.close()
+        os.chmod(GIT_SSH_PRIVATE_KEY_LOC, 0o600)
+    except KeyError:
+        log.error(
+            'Either GIT_SSH_PRIVATE_KEY_LOC or GIT_SSH_PRIVATEY_KEY environment variable must be set.')
+        exit(1)
 
 try:
     SERVICE_CERT_FILENAME = os.environ['SERVICE_CERT_FILENAME']
 except KeyError:
-    logging.error('SERVICE_CERT_FILENAME environment variable must be set.')
+    try:
+        service_cert = os.environ['SERVICE_CERT']
+        SERVICE_CERT_FILENAME = '/tmp/ca.crt'
+        f = open(SERVICE_CERT_FILENAME, 'w')
+        f.write(service_cert)
+        f.close()
+        os.chmod(SERVICE_CERT_FILENAME, 0o600)
+    except KeyError:
+        log.error(
+            'Either SERVICE_CERT_FILENAME or SERVICE_CERT environment variable must be set.')
+        exit(1)
 
 
 class GitRepo(object):
     def __init__(self, remote, working_dir):
+        log.info('Cloning git repo: {0} into: {1}'.format(remote, working_dir))
         self.remote = remote
         self.working_dir = working_dir
 
@@ -108,11 +130,12 @@ class OpenshiftClient(object):
         self.client = self.connect()
 
     def connect(self):
-        KUBERNETES_HOST = "https://%s:%s" % (
+        kubernetes_host = "https://%s:%s" % (
             os.getenv("KUBERNETES_SERVICE_HOST"), os.getenv("KUBERNETES_SERVICE_PORT"))
+        log.info('Connecting to OpenShift {0}'.format(kubernetes_host))
 
         configuration = client.Configuration()
-        configuration.host = KUBERNETES_HOST
+        configuration.host = kubernetes_host
         configuration.api_key['authorization'] = "bearer " + \
             KUBERNETES_TOKEN.strip('\n')
         if not os.path.isfile(SERVICE_CERT_FILENAME):
@@ -148,13 +171,14 @@ class OpenshiftClient(object):
         return resource_yaml
 
 
-def download_resource_type_templates(project_name, resource_kind, working_dir):
+def _download_resource_type_templates(project_name, resource_kind, working_dir):
     try:
         resource_names = openshift_client.get_resource_type_names(
             project_name, resource_kind)
-    except ApiException:
-        logging.warn('Unable to list {0} resource in project {1}'.format(
+    except ApiException as err:
+        log.warn('Unable to list {0} resource in project {1}'.format(
             resource_kind, project_name))
+        log.debug(err)
         return
 
     for name in resource_names:
@@ -162,18 +186,19 @@ def download_resource_type_templates(project_name, resource_kind, working_dir):
             resource_file_name = '{0}/{1}/{2}.yaml'.format(
                 working_dir, resource_kind, name)
 
-            create_dir('{0}/{1}'.format(working_dir, resource_kind))
+            _create_dir('{0}/{1}'.format(working_dir, resource_kind))
             single_resource = openshift_client.get_single_resource_yaml(
                 project_name, resource_kind, name)
 
             with open(resource_file_name, 'w') as resource_file:
                 yaml.dump(single_resource.to_dict(),
                           resource_file, default_flow_style=False)
-        except ApiException:
-            logging.warn('Unable to backup {0}'.format(resource_file_name))
+        except ApiException as err:
+            log.warn('Unable to backup {0}'.format(resource_file_name))
+            log.debug(err)
 
 
-def download_project_templates(project_name):
+def _download_project_templates(project_name):
     types_to_backup = ['Service',
                        'DeploymentConfig',
                        'BuildConfig',
@@ -187,23 +212,23 @@ def download_project_templates(project_name):
                        # 'Pod'
                        ]
     for resource_type in types_to_backup:
-        download_resource_type_templates(project_name, resource_type,
-                                         BACKUP_GIT_WORKING_DIR)
+        _download_resource_type_templates(project_name, resource_type,
+                                          BACKUP_GIT_WORKING_DIR)
 
 
-def download_project_secret_templates(project_name):
-    download_resource_type_templates(
+def _download_project_secret_templates(project_name):
+    _download_resource_type_templates(
         project_name, 'Secret', SECRET_GIT_WORKING_DIR)
 
 
-def create_dir(project_name):
+def _create_dir(project_name):
     try:
         os.makedirs(project_name)
     except OSError:
-        logging.debug('{0} directory already exists.'.format(project_name))
+        log.debug('{0} directory already exists.'.format(project_name))
 
 
-def remove_dir(directory):
+def _remove_dir(directory):
     try:
         os.listdir(directory)
         shutil.rmtree(directory)
@@ -211,38 +236,44 @@ def remove_dir(directory):
         pass
 
 
-def setup_git_repo(repo, working_dir):
-    remove_dir(working_dir)
+def _setup_git_repo(repo, working_dir):
+    _remove_dir(working_dir)
     git_repo = GitRepo(
         repo, working_dir)
     return git_repo
 
 
-openshift_client = OpenshiftClient()
-backup_git_repo = setup_git_repo(BACKUP_GIT_REPO, BACKUP_GIT_WORKING_DIR)
-secret_git_repo = setup_git_repo(SECRET_GIT_REPO, SECRET_GIT_WORKING_DIR)
-
-if __name__ == '__main__':
-    logging.basicConfig(level=LOG_LEVEL)
-
+def full_backup():
+    log.info('Starting full backup')
     projects = openshift_client.get_projects()
 
     for project in projects.items:
         name = project.metadata.name
+        log.info('Backing up project: {0}'.format(name))
 
-        commit_msg = '{1}'.format(
+        commit_msg = '{0}'.format(
             name, datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         backup_git_repo.checkout_branch(name)
-        download_project_templates(name)
+        _download_project_templates(name)
         backup_git_repo.commit_all(commit_msg)
 
         secret_git_repo.checkout_branch(name)
-        download_project_secret_templates(name)
+        _download_project_secret_templates(name)
         secret_git_repo.commit_all(commit_msg)
 
     backup_git_repo.push_all()
     secret_git_repo.push_all()
 
-    remove_dir(BACKUP_GIT_WORKING_DIR)
-    remove_dir(SECRET_GIT_WORKING_DIR)
+    _remove_dir(BACKUP_GIT_WORKING_DIR)
+    _remove_dir(SECRET_GIT_WORKING_DIR)
+
+    log.info('Backup complete')
+
+
+openshift_client = OpenshiftClient()
+backup_git_repo = _setup_git_repo(BACKUP_GIT_REPO, BACKUP_GIT_WORKING_DIR)
+secret_git_repo = _setup_git_repo(SECRET_GIT_REPO, SECRET_GIT_WORKING_DIR)
+
+if __name__ == '__main__':
+    full_backup()
