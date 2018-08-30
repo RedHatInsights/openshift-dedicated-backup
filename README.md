@@ -50,4 +50,4 @@ export WORKING_DIR=/mnt
 export SERVICE_CERT_FILENAME=/home/me/certs/myopenshift.ca.crt
 ```
 3. `source env.sh`
-4. `pipenv run python3 backup.py`
+4. `pipenv run python3 src/backup.py`
