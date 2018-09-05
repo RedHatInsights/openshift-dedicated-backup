@@ -34,7 +34,8 @@ class GitRepo(object):
         try:
             self.repo.git.add('.')
             self.repo.git.commit('-m', msg)
-        except GitCommandError:
+        except GitCommandError as err:
+            log.debug(err)
             pass  # nothing to commit
 
     def push_all(self):

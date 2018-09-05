@@ -8,4 +8,4 @@ RUN pip install pipenv && \
 RUN mkdir /.ssh && \
     ssh-keyscan -t rsa github.com >> /.ssh/known_hosts
 USER 1001
-CMD ["service.sh"]
+CMD ["./service.sh"]
