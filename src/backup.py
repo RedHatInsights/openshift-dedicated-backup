@@ -76,7 +76,7 @@ def full_backup():
 
     backup_git_repo.push_all()
     secret_git_repo.push_all()
-    utils.cleanup_temp_files()
+    _cleanup_temp_files()
 
     log.info('Backup complete')
 
