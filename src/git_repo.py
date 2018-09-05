@@ -1,20 +1,20 @@
 #!/usr/bin/python3
-import config
 from git import Repo
 from git.exc import GitCommandError
 from logger import logging as log
 
 
 class GitRepo(object):
-    def __init__(self, remote, working_dir):
+    def __init__(self, remote, working_dir, private_key=None):
         log.info('Cloning git repo: {0} into: {1}'.format(remote, working_dir))
         self.remote = remote
         self.working_dir = working_dir
-
-        ssh_cmd = 'ssh -i {0}'.format(config.GIT_SSH_PRIVATE_KEY_LOC)
-        log.debug('ssh_cmd: {}'.format(ssh_cmd))
         self.repo = Repo.init(working_dir)
-        self.repo.git.update_environment(GIT_SSH_COMMAND=ssh_cmd)
+
+        if private_key is not None:
+            ssh_cmd = 'ssh -i {0}'.format(private_key)
+            log.debug('ssh_cmd: {}'.format(ssh_cmd))
+            self.repo.git.update_environment(GIT_SSH_COMMAND=ssh_cmd)
 
         self.origin = self.repo.create_remote('origin', self.remote)
         self.origin.fetch()

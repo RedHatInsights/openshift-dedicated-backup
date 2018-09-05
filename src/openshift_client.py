@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-import config
 import os
 from logger import logging as log
 
@@ -10,24 +9,28 @@ from openshift.dynamic import DynamicClient
 
 
 class OpenshiftClient(object):
-    def __init__(self):
+    def __init__(self, host, port, token, ssl_ca_cert):
+        self.host = host
+        self.port = port
+        self.token = token
+        self.ssl_ca_cert = ssl_ca_cert
         self.client = self.connect()
 
     def connect(self):
-        kubernetes_host = "https://%s:%s" % (
-            os.getenv("KUBERNETES_SERVICE_HOST"), os.getenv("KUBERNETES_SERVICE_PORT"))
+        kubernetes_host = 'https://{0}:{1}'.format(
+            self.host, self.port)
         log.info('Connecting to OpenShift {0}'.format(kubernetes_host))
 
         configuration = client.Configuration()
         configuration.host = kubernetes_host
         configuration.api_key['authorization'] = "bearer " + \
-            config.KUBERNETES_TOKEN.strip('\n')
-        if not os.path.isfile(config.SERVICE_CERT_FILENAME):
+            self.token.strip('\n')
+        if not os.path.isfile(self.ssl_ca_cert):
             raise ApiException("Service certification file does not exists.")
-        with open(config.SERVICE_CERT_FILENAME) as f:
+        with open(self.ssl_ca_cert) as f:
             if not f.read():
                 raise ApiException("Cert file exists but empty.")
-            configuration.ssl_ca_cert = config.SERVICE_CERT_FILENAME
+            configuration.ssl_ca_cert = self.ssl_ca_cert
         client.Configuration.set_default(configuration)
         k8s_client = client.api_client.ApiClient()
         return DynamicClient(k8s_client)
@@ -53,3 +56,9 @@ class OpenshiftClient(object):
         resource_yaml = resource.get(
             name=resource_name, namespace=project_name, query_params=[('exact', 'false'), ('export', 'true')])
         return resource_yaml
+
+    def create_resource(self, resource_kind, resource_body, project_name):
+        resource = self.client.resources.get(
+            api_version='v1', kind=resource_kind)
+        self.client.create(resource, resource_body, project_name)
+        pass
