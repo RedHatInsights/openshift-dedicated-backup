@@ -21,6 +21,11 @@ class GitRepo(object):
         self.repo.create_head('master', self.origin.refs.master).set_tracking_branch(
             self.origin.refs.master).checkout()
 
+        with self.repo.config_writer() as cw:
+            cw.add_section('user')
+            cw.set('user', 'email', 'openshift-backup-script@example.com')
+            cw.set('user', 'name', 'OpenShift Backup-Script')
+
     def checkout_branch(self, branch_name):
         try:
             self.repo.create_head(branch_name, self.origin.refs[branch_name]).set_tracking_branch(
